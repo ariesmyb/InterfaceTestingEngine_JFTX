@@ -1,0 +1,1297 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="utf-8"/>
+    <title>Test Report</title>
+    <style>body {
+	font-family: Helvetica, Arial, sans-serif;
+	font-size: 12px;
+	/* do not increase min-width as some may use split screens */
+	min-width: 800px;
+	color: #999;
+}
+
+h1 {
+	font-size: 24px;
+	color: black;
+}
+
+h2 {
+	font-size: 16px;
+	color: black;
+}
+
+p {
+    color: black;
+}
+
+a {
+	color: #999;
+}
+
+table {
+	border-collapse: collapse;
+}
+
+/******************************
+ * SUMMARY INFORMATION
+ ******************************/
+
+#environment td {
+	padding: 5px;
+	border: 1px solid #E6E6E6;
+}
+
+#environment tr:nth-child(odd) {
+	background-color: #f6f6f6;
+}
+
+/******************************
+ * TEST RESULT COLORS
+ ******************************/
+span.passed, .passed .col-result {
+	color: green;
+}
+span.skipped, span.xfailed, span.rerun, .skipped .col-result, .xfailed .col-result, .rerun .col-result {
+	color: orange;
+}
+span.error, span.failed, span.xpassed, .error .col-result, .failed .col-result, .xpassed .col-result  {
+	color: red;
+}
+
+
+/******************************
+ * RESULTS TABLE
+ *
+ * 1. Table Layout
+ * 2. Extra
+ * 3. Sorting items
+ *
+ ******************************/
+
+/*------------------
+ * 1. Table Layout
+ *------------------*/
+
+#results-table {
+	border: 1px solid #e6e6e6;
+	color: #999;
+	font-size: 12px;
+	width: 100%
+}
+
+#results-table th, #results-table td {
+	padding: 5px;
+	border: 1px solid #E6E6E6;
+	text-align: left
+}
+#results-table th {
+	font-weight: bold
+}
+
+/*------------------
+ * 2. Extra
+ *------------------*/
+
+.log:only-child {
+	height: inherit
+}
+.log {
+	background-color: #e6e6e6;
+	border: 1px solid #e6e6e6;
+	color: black;
+	display: block;
+	font-family: "Courier New", Courier, monospace;
+	height: 230px;
+	overflow-y: scroll;
+	padding: 5px;
+	white-space: pre-wrap
+}
+div.image {
+	border: 1px solid #e6e6e6;
+	float: right;
+	height: 240px;
+	margin-left: 5px;
+	overflow: hidden;
+	width: 320px
+}
+div.image img {
+	width: 320px
+}
+div.video {
+	border: 1px solid #e6e6e6;
+	float: right;
+	height: 240px;
+	margin-left: 5px;
+	overflow: hidden;
+	width: 320px
+}
+div.video video {
+	overflow: hidden;
+	width: 320px;
+    height: 240px;
+}
+.collapsed {
+	display: none;
+}
+.expander::after {
+	content: " (show details)";
+	color: #BBB;
+	font-style: italic;
+	cursor: pointer;
+}
+.collapser::after {
+	content: " (hide details)";
+	color: #BBB;
+	font-style: italic;
+	cursor: pointer;
+}
+
+/*------------------
+ * 3. Sorting items
+ *------------------*/
+.sortable {
+	cursor: pointer;
+}
+
+.sort-icon {
+	font-size: 0px;
+	float: left;
+	margin-right: 5px;
+	margin-top: 5px;
+	/*triangle*/
+	width: 0;
+	height: 0;
+	border-left: 8px solid transparent;
+	border-right: 8px solid transparent;
+}
+
+.inactive .sort-icon {
+	/*finish triangle*/
+	border-top: 8px solid #E6E6E6;
+}
+
+.asc.active .sort-icon {
+	/*finish triangle*/
+	border-bottom: 8px solid #999;
+}
+
+.desc.active .sort-icon {
+	/*finish triangle*/
+	border-top: 8px solid #999;
+}
+</style></head>
+  <body onLoad="init()">
+    <script>/* This Source Code Form is subject to the terms of the Mozilla Public
+ * License, v. 2.0. If a copy of the MPL was not distributed with this file,
+ * You can obtain one at http://mozilla.org/MPL/2.0/. */
+
+
+function toArray(iter) {
+    if (iter === null) {
+        return null;
+    }
+    return Array.prototype.slice.call(iter);
+}
+
+function find(selector, elem) { // eslint-disable-line no-redeclare
+    if (!elem) {
+        elem = document;
+    }
+    return elem.querySelector(selector);
+}
+
+function find_all(selector, elem) {
+    if (!elem) {
+        elem = document;
+    }
+    return toArray(elem.querySelectorAll(selector));
+}
+
+function sort_column(elem) {
+    toggle_sort_states(elem);
+    const colIndex = toArray(elem.parentNode.childNodes).indexOf(elem);
+    let key;
+    if (elem.classList.contains('numeric')) {
+        key = key_num;
+    } else if (elem.classList.contains('result')) {
+        key = key_result;
+    } else if (elem.classList.contains('links')) {
+        key = key_link;
+    } else {
+        key = key_alpha;
+    }
+    sort_table(elem, key(colIndex));
+}
+
+function show_all_extras() { // eslint-disable-line no-unused-vars
+    find_all('.col-result').forEach(show_extras);
+}
+
+function hide_all_extras() { // eslint-disable-line no-unused-vars
+    find_all('.col-result').forEach(hide_extras);
+}
+
+function show_extras(colresult_elem) {
+    const extras = colresult_elem.parentNode.nextElementSibling;
+    const expandcollapse = colresult_elem.firstElementChild;
+    extras.classList.remove('collapsed');
+    expandcollapse.classList.remove('expander');
+    expandcollapse.classList.add('collapser');
+}
+
+function hide_extras(colresult_elem) {
+    const extras = colresult_elem.parentNode.nextElementSibling;
+    const expandcollapse = colresult_elem.firstElementChild;
+    extras.classList.add('collapsed');
+    expandcollapse.classList.remove('collapser');
+    expandcollapse.classList.add('expander');
+}
+
+function show_filters() {
+    const filter_items = document.getElementsByClassName('filter');
+    for (let i = 0; i < filter_items.length; i++)
+        filter_items[i].hidden = false;
+}
+
+function add_collapse() {
+    // Add links for show/hide all
+    const resulttable = find('table#results-table');
+    const showhideall = document.createElement('p');
+    showhideall.innerHTML = '<a href="javascript:show_all_extras()">Show all details</a> / ' +
+                            '<a href="javascript:hide_all_extras()">Hide all details</a>';
+    resulttable.parentElement.insertBefore(showhideall, resulttable);
+
+    // Add show/hide link to each result
+    find_all('.col-result').forEach(function(elem) {
+        const collapsed = get_query_parameter('collapsed') || 'Passed';
+        const extras = elem.parentNode.nextElementSibling;
+        const expandcollapse = document.createElement('span');
+        if (extras.classList.contains('collapsed')) {
+            expandcollapse.classList.add('expander');
+        } else if (collapsed.includes(elem.innerHTML)) {
+            extras.classList.add('collapsed');
+            expandcollapse.classList.add('expander');
+        } else {
+            expandcollapse.classList.add('collapser');
+        }
+        elem.appendChild(expandcollapse);
+
+        elem.addEventListener('click', function(event) {
+            if (event.currentTarget.parentNode.nextElementSibling.classList.contains('collapsed')) {
+                show_extras(event.currentTarget);
+            } else {
+                hide_extras(event.currentTarget);
+            }
+        });
+    });
+}
+
+function get_query_parameter(name) {
+    const match = RegExp('[?&]' + name + '=([^&]*)').exec(window.location.search);
+    return match && decodeURIComponent(match[1].replace(/\+/g, ' '));
+}
+
+function init () { // eslint-disable-line no-unused-vars
+    reset_sort_headers();
+
+    add_collapse();
+
+    show_filters();
+
+    sort_column(find('.initial-sort'));
+
+    find_all('.sortable').forEach(function(elem) {
+        elem.addEventListener('click',
+            function() {
+                sort_column(elem);
+            }, false);
+    });
+}
+
+function sort_table(clicked, key_func) {
+    const rows = find_all('.results-table-row');
+    const reversed = !clicked.classList.contains('asc');
+    const sorted_rows = sort(rows, key_func, reversed);
+    /* Whole table is removed here because browsers acts much slower
+     * when appending existing elements.
+     */
+    const thead = document.getElementById('results-table-head');
+    document.getElementById('results-table').remove();
+    const parent = document.createElement('table');
+    parent.id = 'results-table';
+    parent.appendChild(thead);
+    sorted_rows.forEach(function(elem) {
+        parent.appendChild(elem);
+    });
+    document.getElementsByTagName('BODY')[0].appendChild(parent);
+}
+
+function sort(items, key_func, reversed) {
+    const sort_array = items.map(function(item, i) {
+        return [key_func(item), i];
+    });
+
+    sort_array.sort(function(a, b) {
+        const key_a = a[0];
+        const key_b = b[0];
+
+        if (key_a == key_b) return 0;
+
+        if (reversed) {
+            return key_a < key_b ? 1 : -1;
+        } else {
+            return key_a > key_b ? 1 : -1;
+        }
+    });
+
+    return sort_array.map(function(item) {
+        const index = item[1];
+        return items[index];
+    });
+}
+
+function key_alpha(col_index) {
+    return function(elem) {
+        return elem.childNodes[1].childNodes[col_index].firstChild.data.toLowerCase();
+    };
+}
+
+function key_num(col_index) {
+    return function(elem) {
+        return parseFloat(elem.childNodes[1].childNodes[col_index].firstChild.data);
+    };
+}
+
+function key_link(col_index) {
+    return function(elem) {
+        const dataCell = elem.childNodes[1].childNodes[col_index].firstChild;
+        return dataCell == null ? '' : dataCell.innerText.toLowerCase();
+    };
+}
+
+function key_result(col_index) {
+    return function(elem) {
+        const strings = ['Error', 'Failed', 'Rerun', 'XFailed', 'XPassed',
+            'Skipped', 'Passed'];
+        return strings.indexOf(elem.childNodes[1].childNodes[col_index].firstChild.data);
+    };
+}
+
+function reset_sort_headers() {
+    find_all('.sort-icon').forEach(function(elem) {
+        elem.parentNode.removeChild(elem);
+    });
+    find_all('.sortable').forEach(function(elem) {
+        const icon = document.createElement('div');
+        icon.className = 'sort-icon';
+        icon.textContent = 'vvv';
+        elem.insertBefore(icon, elem.firstChild);
+        elem.classList.remove('desc', 'active');
+        elem.classList.add('asc', 'inactive');
+    });
+}
+
+function toggle_sort_states(elem) {
+    //if active, toggle between asc and desc
+    if (elem.classList.contains('active')) {
+        elem.classList.toggle('asc');
+        elem.classList.toggle('desc');
+    }
+
+    //if inactive, reset all other functions and add ascending active
+    if (elem.classList.contains('inactive')) {
+        reset_sort_headers();
+        elem.classList.remove('inactive');
+        elem.classList.add('active');
+    }
+}
+
+function is_all_rows_hidden(value) {
+    return value.hidden == false;
+}
+
+function filter_table(elem) { // eslint-disable-line no-unused-vars
+    const outcome_att = 'data-test-result';
+    const outcome = elem.getAttribute(outcome_att);
+    const class_outcome = outcome + ' results-table-row';
+    const outcome_rows = document.getElementsByClassName(class_outcome);
+
+    for(let i = 0; i < outcome_rows.length; i++){
+        outcome_rows[i].hidden = !elem.checked;
+    }
+
+    const rows = find_all('.results-table-row').filter(is_all_rows_hidden);
+    const all_rows_hidden = rows.length == 0 ? true : false;
+    const not_found_message = document.getElementById('not-found-message');
+    not_found_message.hidden = !all_rows_hidden;
+}
+</script>
+    <h1>report.html</h1>
+    <p>Report generated on 14-Dec-2020 at 11:48:23 by <a href="https://pypi.python.org/pypi/pytest-html">pytest-html</a> v3.0.0</p>
+    <h2>Environment</h2>
+    <table id="environment">
+      <tr>
+        <td>JAVA_HOME</td>
+        <td>C:\Program Files\Java\jdk1.8.0_171</td></tr>
+      <tr>
+        <td>Packages</td>
+        <td>{"pluggy": "0.13.1", "py": "1.9.0", "pytest": "6.1.2"}</td></tr>
+      <tr>
+        <td>Platform</td>
+        <td>Windows-7-6.1.7601-SP1</td></tr>
+      <tr>
+        <td>Plugins</td>
+        <td>{"forked": "1.3.0", "html": "3.0.0", "metadata": "1.10.0", "ordering": "0.6", "rerunfailures": "9.1.1", "xdist": "2.1.0"}</td></tr>
+      <tr>
+        <td>Python</td>
+        <td>3.7.7</td></tr></table>
+    <h2>Summary</h2>
+    <p>88 tests ran in 95.27 seconds. </p>
+    <p class="filter" hidden="true">(Un)check the boxes to filter the results.</p><input checked="true" class="filter" data-test-result="passed" hidden="true" name="filter_checkbox" onChange="filter_table(this)" type="checkbox"/><span class="passed">82 passed</span>, <input checked="true" class="filter" data-test-result="skipped" disabled="true" hidden="true" name="filter_checkbox" onChange="filter_table(this)" type="checkbox"/><span class="skipped">0 skipped</span>, <input checked="true" class="filter" data-test-result="failed" hidden="true" name="filter_checkbox" onChange="filter_table(this)" type="checkbox"/><span class="failed">6 failed</span>, <input checked="true" class="filter" data-test-result="error" disabled="true" hidden="true" name="filter_checkbox" onChange="filter_table(this)" type="checkbox"/><span class="error">0 errors</span>, <input checked="true" class="filter" data-test-result="xfailed" disabled="true" hidden="true" name="filter_checkbox" onChange="filter_table(this)" type="checkbox"/><span class="xfailed">0 expected failures</span>, <input checked="true" class="filter" data-test-result="xpassed" disabled="true" hidden="true" name="filter_checkbox" onChange="filter_table(this)" type="checkbox"/><span class="xpassed">0 unexpected passes</span>, <input checked="true" class="filter" data-test-result="rerun" disabled="true" hidden="true" name="filter_checkbox" onChange="filter_table(this)" type="checkbox"/><span class="rerun">0 rerun</span>
+    <h2>Results</h2>
+    <table id="results-table">
+      <thead id="results-table-head">
+        <tr>
+          <th class="sortable result initial-sort" col="result">Result</th>
+          <th class="sortable" col="name">Test</th>
+          <th class="sortable numeric" col="duration">Duration</th>
+          <th class="sortable links" col="links">Links</th></tr>
+        <tr hidden="true" id="not-found-message">
+          <th colspan="4">No results found. Try to check the filters</th></tr></thead>
+      <tbody class="failed results-table-row">
+        <tr>
+          <td class="col-result">Failed</td>
+          <td class="col-name">testCase/common/test_mysqlUtil.py::test_mysql_insert</td>
+          <td class="col-duration">10.00</td>
+          <td class="col-links"></td></tr>
+        <tr>
+          <td class="extra" colspan="4">
+            <div class="log">self = &lt;pymysql.connections.Connection object at 0x000000000CCAFCC8&gt;<br/>sock = None<br/><br/>    def connect(self, sock=None):<br/>        self._closed = False<br/>        try:<br/>            if sock is None:<br/>                if self.unix_socket:<br/>                    sock = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)<br/>                    sock.settimeout(self.connect_timeout)<br/>                    sock.connect(self.unix_socket)<br/>                    self.host_info = &quot;Localhost via UNIX socket&quot;<br/>                    self._secure = True<br/>                    if DEBUG: print(&#x27;connected using unix_socket&#x27;)<br/>                else:<br/>                    kwargs = {}<br/>                    if self.bind_address is not None:<br/>                        kwargs[&#x27;source_address&#x27;] = (self.bind_address, 0)<br/>                    while True:<br/>                        try:<br/>                            sock = socket.create_connection(<br/>                                (self.host, self.port), self.connect_timeout,<br/>&gt;                               **kwargs)<br/><br/>..\..\..\appdata\local\programs\python\python37\lib\site-packages\pymysql\connections.py:571: <br/>_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _<br/><br/>address = (&#x27;192.168.6.46&#x27;, 3306), timeout = 10, source_address = None<br/><br/>    def create_connection(address, timeout=_GLOBAL_DEFAULT_TIMEOUT,<br/>                          source_address=None):<br/>        &quot;&quot;&quot;Connect to *address* and return the socket object.<br/>    <br/>        Convenience function.  Connect to *address* (a 2-tuple ``(host,<br/>        port)``) and return the socket object.  Passing the optional<br/>        *timeout* parameter will set the timeout on the socket instance<br/>        before attempting to connect.  If no *timeout* is supplied, the<br/>        global default timeout setting returned by :func:`getdefaulttimeout`<br/>        is used.  If *source_address* is set it must be a tuple of (host, port)<br/>        for the socket to bind as a source address before making the connection.<br/>        A host of &#x27;&#x27; or port 0 tells the OS to use the default.<br/>        &quot;&quot;&quot;<br/>    <br/>        host, port = address<br/>        err = None<br/>        for res in getaddrinfo(host, port, 0, SOCK_STREAM):<br/>            af, socktype, proto, canonname, sa = res<br/>            sock = None<br/>            try:<br/>                sock = socket(af, socktype, proto)<br/>                if timeout is not _GLOBAL_DEFAULT_TIMEOUT:<br/>                    sock.settimeout(timeout)<br/>                if source_address:<br/>                    sock.bind(source_address)<br/>                sock.connect(sa)<br/>                # Break explicitly a reference cycle<br/>                err = None<br/>                return sock<br/>    <br/>            except error as _:<br/>                err = _<br/>                if sock is not None:<br/>                    sock.close()<br/>    <br/>        if err is not None:<br/>            try:<br/>&gt;               raise err<br/><br/>..\..\..\appdata\local\programs\python\python37\lib\socket.py:728: <br/>_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _<br/><br/>address = (&#x27;192.168.6.46&#x27;, 3306), timeout = 10, source_address = None<br/><br/>    def create_connection(address, timeout=_GLOBAL_DEFAULT_TIMEOUT,<br/>                          source_address=None):<br/>        &quot;&quot;&quot;Connect to *address* and return the socket object.<br/>    <br/>        Convenience function.  Connect to *address* (a 2-tuple ``(host,<br/>        port)``) and return the socket object.  Passing the optional<br/>        *timeout* parameter will set the timeout on the socket instance<br/>        before attempting to connect.  If no *timeout* is supplied, the<br/>        global default timeout setting returned by :func:`getdefaulttimeout`<br/>        is used.  If *source_address* is set it must be a tuple of (host, port)<br/>        for the socket to bind as a source address before making the connection.<br/>        A host of &#x27;&#x27; or port 0 tells the OS to use the default.<br/>        &quot;&quot;&quot;<br/>    <br/>        host, port = address<br/>        err = None<br/>        for res in getaddrinfo(host, port, 0, SOCK_STREAM):<br/>            af, socktype, proto, canonname, sa = res<br/>            sock = None<br/>            try:<br/>                sock = socket(af, socktype, proto)<br/>                if timeout is not _GLOBAL_DEFAULT_TIMEOUT:<br/>                    sock.settimeout(timeout)<br/>                if source_address:<br/>                    sock.bind(source_address)<br/>&gt;               sock.connect(sa)<br/><span class="error">E               socket.timeout: timed out</span><br/><br/>..\..\..\appdata\local\programs\python\python37\lib\socket.py:716: timeout<br/><br/>During handling of the above exception, another exception occurred:<br/><br/>    def test_mysql_insert():<br/>&gt;       mysql = MysqlUtil(&#x27;192.168.6.46&#x27;)<br/><br/>testCase\common\test_mysqlUtil.py:14: <br/>_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _<br/>common\mysqlUtil.py:18: in __init__<br/>    self.db = pymysql.connect(host, user, passwd, port=3306, charset=&#x27;utf8&#x27;)<br/>..\..\..\appdata\local\programs\python\python37\lib\site-packages\pymysql\__init__.py:94: in Connect<br/>    return Connection(*args, **kwargs)<br/>..\..\..\appdata\local\programs\python\python37\lib\site-packages\pymysql\connections.py:327: in __init__<br/>    self.connect()<br/>_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _<br/><br/>self = &lt;pymysql.connections.Connection object at 0x000000000CCAFCC8&gt;<br/>sock = None<br/><br/>    def connect(self, sock=None):<br/>        self._closed = False<br/>        try:<br/>            if sock is None:<br/>                if self.unix_socket:<br/>                    sock = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)<br/>                    sock.settimeout(self.connect_timeout)<br/>                    sock.connect(self.unix_socket)<br/>                    self.host_info = &quot;Localhost via UNIX socket&quot;<br/>                    self._secure = True<br/>                    if DEBUG: print(&#x27;connected using unix_socket&#x27;)<br/>                else:<br/>                    kwargs = {}<br/>                    if self.bind_address is not None:<br/>                        kwargs[&#x27;source_address&#x27;] = (self.bind_address, 0)<br/>                    while True:<br/>                        try:<br/>                            sock = socket.create_connection(<br/>                                (self.host, self.port), self.connect_timeout,<br/>                                **kwargs)<br/>                            break<br/>                        except (OSError, IOError) as e:<br/>                            if e.errno == errno.EINTR:<br/>                                continue<br/>                            raise<br/>                    self.host_info = &quot;socket %s:%d&quot; % (self.host, self.port)<br/>                    if DEBUG: print(&#x27;connected using socket&#x27;)<br/>                    sock.setsockopt(socket.IPPROTO_TCP, socket.TCP_NODELAY, 1)<br/>                    sock.setsockopt(socket.SOL_SOCKET, socket.SO_KEEPALIVE, 1)<br/>                sock.settimeout(None)<br/>    <br/>            self._sock = sock<br/>            self._rfile = _makefile(sock, &#x27;rb&#x27;)<br/>            self._next_seq_id = 0<br/>    <br/>            self._get_server_information()<br/>            self._request_authentication()<br/>    <br/>            if self.sql_mode is not None:<br/>                c = self.cursor()<br/>                c.execute(&quot;SET sql_mode=%s&quot;, (self.sql_mode,))<br/>    <br/>            if self.init_command is not None:<br/>                c = self.cursor()<br/>                c.execute(self.init_command)<br/>                c.close()<br/>                self.commit()<br/>    <br/>            if self.autocommit_mode is not None:<br/>                self.autocommit(self.autocommit_mode)<br/>        except BaseException as e:<br/>            self._rfile = None<br/>            if sock is not None:<br/>                try:<br/>                    sock.close()<br/>                except:  # noqa<br/>                    pass<br/>    <br/>            if isinstance(e, (OSError, IOError, socket.error)):<br/>                exc = err.OperationalError(<br/>                        2003,<br/>                        &quot;Can&#x27;t connect to MySQL server on %r (%s)&quot; % (<br/>                            self.host, e))<br/>                # Keep original exception and traceback to investigate error.<br/>                exc.original_exception = e<br/>                exc.traceback = traceback.format_exc()<br/>                if DEBUG: print(exc.traceback)<br/>&gt;               raise exc<br/><span class="error">E               pymysql.err.OperationalError: (2003, &quot;Can&#x27;t connect to MySQL server on &#x27;192.168.6.46&#x27; (timed out)&quot;)</span><br/><br/>..\..\..\appdata\local\programs\python\python37\lib\site-packages\pymysql\connections.py:619: OperationalError<br/></div></td></tr></tbody>
+      <tbody class="failed results-table-row">
+        <tr>
+          <td class="col-result">Failed</td>
+          <td class="col-name">testCase/common/test_mysqlUtil.py::test_mysql_update</td>
+          <td class="col-duration">10.00</td>
+          <td class="col-links"></td></tr>
+        <tr>
+          <td class="extra" colspan="4">
+            <div class="log">self = &lt;pymysql.connections.Connection object at 0x000000000D211108&gt;<br/>sock = None<br/><br/>    def connect(self, sock=None):<br/>        self._closed = False<br/>        try:<br/>            if sock is None:<br/>                if self.unix_socket:<br/>                    sock = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)<br/>                    sock.settimeout(self.connect_timeout)<br/>                    sock.connect(self.unix_socket)<br/>                    self.host_info = &quot;Localhost via UNIX socket&quot;<br/>                    self._secure = True<br/>                    if DEBUG: print(&#x27;connected using unix_socket&#x27;)<br/>                else:<br/>                    kwargs = {}<br/>                    if self.bind_address is not None:<br/>                        kwargs[&#x27;source_address&#x27;] = (self.bind_address, 0)<br/>                    while True:<br/>                        try:<br/>                            sock = socket.create_connection(<br/>                                (self.host, self.port), self.connect_timeout,<br/>&gt;                               **kwargs)<br/><br/>..\..\..\appdata\local\programs\python\python37\lib\site-packages\pymysql\connections.py:571: <br/>_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _<br/><br/>address = (&#x27;192.168.6.46&#x27;, 3306), timeout = 10, source_address = None<br/><br/>    def create_connection(address, timeout=_GLOBAL_DEFAULT_TIMEOUT,<br/>                          source_address=None):<br/>        &quot;&quot;&quot;Connect to *address* and return the socket object.<br/>    <br/>        Convenience function.  Connect to *address* (a 2-tuple ``(host,<br/>        port)``) and return the socket object.  Passing the optional<br/>        *timeout* parameter will set the timeout on the socket instance<br/>        before attempting to connect.  If no *timeout* is supplied, the<br/>        global default timeout setting returned by :func:`getdefaulttimeout`<br/>        is used.  If *source_address* is set it must be a tuple of (host, port)<br/>        for the socket to bind as a source address before making the connection.<br/>        A host of &#x27;&#x27; or port 0 tells the OS to use the default.<br/>        &quot;&quot;&quot;<br/>    <br/>        host, port = address<br/>        err = None<br/>        for res in getaddrinfo(host, port, 0, SOCK_STREAM):<br/>            af, socktype, proto, canonname, sa = res<br/>            sock = None<br/>            try:<br/>                sock = socket(af, socktype, proto)<br/>                if timeout is not _GLOBAL_DEFAULT_TIMEOUT:<br/>                    sock.settimeout(timeout)<br/>                if source_address:<br/>                    sock.bind(source_address)<br/>                sock.connect(sa)<br/>                # Break explicitly a reference cycle<br/>                err = None<br/>                return sock<br/>    <br/>            except error as _:<br/>                err = _<br/>                if sock is not None:<br/>                    sock.close()<br/>    <br/>        if err is not None:<br/>            try:<br/>&gt;               raise err<br/><br/>..\..\..\appdata\local\programs\python\python37\lib\socket.py:728: <br/>_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _<br/><br/>address = (&#x27;192.168.6.46&#x27;, 3306), timeout = 10, source_address = None<br/><br/>    def create_connection(address, timeout=_GLOBAL_DEFAULT_TIMEOUT,<br/>                          source_address=None):<br/>        &quot;&quot;&quot;Connect to *address* and return the socket object.<br/>    <br/>        Convenience function.  Connect to *address* (a 2-tuple ``(host,<br/>        port)``) and return the socket object.  Passing the optional<br/>        *timeout* parameter will set the timeout on the socket instance<br/>        before attempting to connect.  If no *timeout* is supplied, the<br/>        global default timeout setting returned by :func:`getdefaulttimeout`<br/>        is used.  If *source_address* is set it must be a tuple of (host, port)<br/>        for the socket to bind as a source address before making the connection.<br/>        A host of &#x27;&#x27; or port 0 tells the OS to use the default.<br/>        &quot;&quot;&quot;<br/>    <br/>        host, port = address<br/>        err = None<br/>        for res in getaddrinfo(host, port, 0, SOCK_STREAM):<br/>            af, socktype, proto, canonname, sa = res<br/>            sock = None<br/>            try:<br/>                sock = socket(af, socktype, proto)<br/>                if timeout is not _GLOBAL_DEFAULT_TIMEOUT:<br/>                    sock.settimeout(timeout)<br/>                if source_address:<br/>                    sock.bind(source_address)<br/>&gt;               sock.connect(sa)<br/><span class="error">E               socket.timeout: timed out</span><br/><br/>..\..\..\appdata\local\programs\python\python37\lib\socket.py:716: timeout<br/><br/>During handling of the above exception, another exception occurred:<br/><br/>    def test_mysql_update():<br/>&gt;       mysql = MysqlUtil(&#x27;192.168.6.46&#x27;)<br/><br/>testCase\common\test_mysqlUtil.py:22: <br/>_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _<br/>common\mysqlUtil.py:18: in __init__<br/>    self.db = pymysql.connect(host, user, passwd, port=3306, charset=&#x27;utf8&#x27;)<br/>..\..\..\appdata\local\programs\python\python37\lib\site-packages\pymysql\__init__.py:94: in Connect<br/>    return Connection(*args, **kwargs)<br/>..\..\..\appdata\local\programs\python\python37\lib\site-packages\pymysql\connections.py:327: in __init__<br/>    self.connect()<br/>_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _<br/><br/>self = &lt;pymysql.connections.Connection object at 0x000000000D211108&gt;<br/>sock = None<br/><br/>    def connect(self, sock=None):<br/>        self._closed = False<br/>        try:<br/>            if sock is None:<br/>                if self.unix_socket:<br/>                    sock = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)<br/>                    sock.settimeout(self.connect_timeout)<br/>                    sock.connect(self.unix_socket)<br/>                    self.host_info = &quot;Localhost via UNIX socket&quot;<br/>                    self._secure = True<br/>                    if DEBUG: print(&#x27;connected using unix_socket&#x27;)<br/>                else:<br/>                    kwargs = {}<br/>                    if self.bind_address is not None:<br/>                        kwargs[&#x27;source_address&#x27;] = (self.bind_address, 0)<br/>                    while True:<br/>                        try:<br/>                            sock = socket.create_connection(<br/>                                (self.host, self.port), self.connect_timeout,<br/>                                **kwargs)<br/>                            break<br/>                        except (OSError, IOError) as e:<br/>                            if e.errno == errno.EINTR:<br/>                                continue<br/>                            raise<br/>                    self.host_info = &quot;socket %s:%d&quot; % (self.host, self.port)<br/>                    if DEBUG: print(&#x27;connected using socket&#x27;)<br/>                    sock.setsockopt(socket.IPPROTO_TCP, socket.TCP_NODELAY, 1)<br/>                    sock.setsockopt(socket.SOL_SOCKET, socket.SO_KEEPALIVE, 1)<br/>                sock.settimeout(None)<br/>    <br/>            self._sock = sock<br/>            self._rfile = _makefile(sock, &#x27;rb&#x27;)<br/>            self._next_seq_id = 0<br/>    <br/>            self._get_server_information()<br/>            self._request_authentication()<br/>    <br/>            if self.sql_mode is not None:<br/>                c = self.cursor()<br/>                c.execute(&quot;SET sql_mode=%s&quot;, (self.sql_mode,))<br/>    <br/>            if self.init_command is not None:<br/>                c = self.cursor()<br/>                c.execute(self.init_command)<br/>                c.close()<br/>                self.commit()<br/>    <br/>            if self.autocommit_mode is not None:<br/>                self.autocommit(self.autocommit_mode)<br/>        except BaseException as e:<br/>            self._rfile = None<br/>            if sock is not None:<br/>                try:<br/>                    sock.close()<br/>                except:  # noqa<br/>                    pass<br/>    <br/>            if isinstance(e, (OSError, IOError, socket.error)):<br/>                exc = err.OperationalError(<br/>                        2003,<br/>                        &quot;Can&#x27;t connect to MySQL server on %r (%s)&quot; % (<br/>                            self.host, e))<br/>                # Keep original exception and traceback to investigate error.<br/>                exc.original_exception = e<br/>                exc.traceback = traceback.format_exc()<br/>                if DEBUG: print(exc.traceback)<br/>&gt;               raise exc<br/><span class="error">E               pymysql.err.OperationalError: (2003, &quot;Can&#x27;t connect to MySQL server on &#x27;192.168.6.46&#x27; (timed out)&quot;)</span><br/><br/>..\..\..\appdata\local\programs\python\python37\lib\site-packages\pymysql\connections.py:619: OperationalError<br/></div></td></tr></tbody>
+      <tbody class="failed results-table-row">
+        <tr>
+          <td class="col-result">Failed</td>
+          <td class="col-name">testCase/common/test_mysqlUtil.py::test_mysql_delete</td>
+          <td class="col-duration">10.00</td>
+          <td class="col-links"></td></tr>
+        <tr>
+          <td class="extra" colspan="4">
+            <div class="log">self = &lt;pymysql.connections.Connection object at 0x000000000CFA2608&gt;<br/>sock = None<br/><br/>    def connect(self, sock=None):<br/>        self._closed = False<br/>        try:<br/>            if sock is None:<br/>                if self.unix_socket:<br/>                    sock = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)<br/>                    sock.settimeout(self.connect_timeout)<br/>                    sock.connect(self.unix_socket)<br/>                    self.host_info = &quot;Localhost via UNIX socket&quot;<br/>                    self._secure = True<br/>                    if DEBUG: print(&#x27;connected using unix_socket&#x27;)<br/>                else:<br/>                    kwargs = {}<br/>                    if self.bind_address is not None:<br/>                        kwargs[&#x27;source_address&#x27;] = (self.bind_address, 0)<br/>                    while True:<br/>                        try:<br/>                            sock = socket.create_connection(<br/>                                (self.host, self.port), self.connect_timeout,<br/>&gt;                               **kwargs)<br/><br/>..\..\..\appdata\local\programs\python\python37\lib\site-packages\pymysql\connections.py:571: <br/>_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _<br/><br/>address = (&#x27;192.168.6.46&#x27;, 3306), timeout = 10, source_address = None<br/><br/>    def create_connection(address, timeout=_GLOBAL_DEFAULT_TIMEOUT,<br/>                          source_address=None):<br/>        &quot;&quot;&quot;Connect to *address* and return the socket object.<br/>    <br/>        Convenience function.  Connect to *address* (a 2-tuple ``(host,<br/>        port)``) and return the socket object.  Passing the optional<br/>        *timeout* parameter will set the timeout on the socket instance<br/>        before attempting to connect.  If no *timeout* is supplied, the<br/>        global default timeout setting returned by :func:`getdefaulttimeout`<br/>        is used.  If *source_address* is set it must be a tuple of (host, port)<br/>        for the socket to bind as a source address before making the connection.<br/>        A host of &#x27;&#x27; or port 0 tells the OS to use the default.<br/>        &quot;&quot;&quot;<br/>    <br/>        host, port = address<br/>        err = None<br/>        for res in getaddrinfo(host, port, 0, SOCK_STREAM):<br/>            af, socktype, proto, canonname, sa = res<br/>            sock = None<br/>            try:<br/>                sock = socket(af, socktype, proto)<br/>                if timeout is not _GLOBAL_DEFAULT_TIMEOUT:<br/>                    sock.settimeout(timeout)<br/>                if source_address:<br/>                    sock.bind(source_address)<br/>                sock.connect(sa)<br/>                # Break explicitly a reference cycle<br/>                err = None<br/>                return sock<br/>    <br/>            except error as _:<br/>                err = _<br/>                if sock is not None:<br/>                    sock.close()<br/>    <br/>        if err is not None:<br/>            try:<br/>&gt;               raise err<br/><br/>..\..\..\appdata\local\programs\python\python37\lib\socket.py:728: <br/>_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _<br/><br/>address = (&#x27;192.168.6.46&#x27;, 3306), timeout = 10, source_address = None<br/><br/>    def create_connection(address, timeout=_GLOBAL_DEFAULT_TIMEOUT,<br/>                          source_address=None):<br/>        &quot;&quot;&quot;Connect to *address* and return the socket object.<br/>    <br/>        Convenience function.  Connect to *address* (a 2-tuple ``(host,<br/>        port)``) and return the socket object.  Passing the optional<br/>        *timeout* parameter will set the timeout on the socket instance<br/>        before attempting to connect.  If no *timeout* is supplied, the<br/>        global default timeout setting returned by :func:`getdefaulttimeout`<br/>        is used.  If *source_address* is set it must be a tuple of (host, port)<br/>        for the socket to bind as a source address before making the connection.<br/>        A host of &#x27;&#x27; or port 0 tells the OS to use the default.<br/>        &quot;&quot;&quot;<br/>    <br/>        host, port = address<br/>        err = None<br/>        for res in getaddrinfo(host, port, 0, SOCK_STREAM):<br/>            af, socktype, proto, canonname, sa = res<br/>            sock = None<br/>            try:<br/>                sock = socket(af, socktype, proto)<br/>                if timeout is not _GLOBAL_DEFAULT_TIMEOUT:<br/>                    sock.settimeout(timeout)<br/>                if source_address:<br/>                    sock.bind(source_address)<br/>&gt;               sock.connect(sa)<br/><span class="error">E               socket.timeout: timed out</span><br/><br/>..\..\..\appdata\local\programs\python\python37\lib\socket.py:716: timeout<br/><br/>During handling of the above exception, another exception occurred:<br/><br/>    def test_mysql_delete():<br/>&gt;       mysql = MysqlUtil(&#x27;192.168.6.46&#x27;)<br/><br/>testCase\common\test_mysqlUtil.py:30: <br/>_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _<br/>common\mysqlUtil.py:18: in __init__<br/>    self.db = pymysql.connect(host, user, passwd, port=3306, charset=&#x27;utf8&#x27;)<br/>..\..\..\appdata\local\programs\python\python37\lib\site-packages\pymysql\__init__.py:94: in Connect<br/>    return Connection(*args, **kwargs)<br/>..\..\..\appdata\local\programs\python\python37\lib\site-packages\pymysql\connections.py:327: in __init__<br/>    self.connect()<br/>_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _<br/><br/>self = &lt;pymysql.connections.Connection object at 0x000000000CFA2608&gt;<br/>sock = None<br/><br/>    def connect(self, sock=None):<br/>        self._closed = False<br/>        try:<br/>            if sock is None:<br/>                if self.unix_socket:<br/>                    sock = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)<br/>                    sock.settimeout(self.connect_timeout)<br/>                    sock.connect(self.unix_socket)<br/>                    self.host_info = &quot;Localhost via UNIX socket&quot;<br/>                    self._secure = True<br/>                    if DEBUG: print(&#x27;connected using unix_socket&#x27;)<br/>                else:<br/>                    kwargs = {}<br/>                    if self.bind_address is not None:<br/>                        kwargs[&#x27;source_address&#x27;] = (self.bind_address, 0)<br/>                    while True:<br/>                        try:<br/>                            sock = socket.create_connection(<br/>                                (self.host, self.port), self.connect_timeout,<br/>                                **kwargs)<br/>                            break<br/>                        except (OSError, IOError) as e:<br/>                            if e.errno == errno.EINTR:<br/>                                continue<br/>                            raise<br/>                    self.host_info = &quot;socket %s:%d&quot; % (self.host, self.port)<br/>                    if DEBUG: print(&#x27;connected using socket&#x27;)<br/>                    sock.setsockopt(socket.IPPROTO_TCP, socket.TCP_NODELAY, 1)<br/>                    sock.setsockopt(socket.SOL_SOCKET, socket.SO_KEEPALIVE, 1)<br/>                sock.settimeout(None)<br/>    <br/>            self._sock = sock<br/>            self._rfile = _makefile(sock, &#x27;rb&#x27;)<br/>            self._next_seq_id = 0<br/>    <br/>            self._get_server_information()<br/>            self._request_authentication()<br/>    <br/>            if self.sql_mode is not None:<br/>                c = self.cursor()<br/>                c.execute(&quot;SET sql_mode=%s&quot;, (self.sql_mode,))<br/>    <br/>            if self.init_command is not None:<br/>                c = self.cursor()<br/>                c.execute(self.init_command)<br/>                c.close()<br/>                self.commit()<br/>    <br/>            if self.autocommit_mode is not None:<br/>                self.autocommit(self.autocommit_mode)<br/>        except BaseException as e:<br/>            self._rfile = None<br/>            if sock is not None:<br/>                try:<br/>                    sock.close()<br/>                except:  # noqa<br/>                    pass<br/>    <br/>            if isinstance(e, (OSError, IOError, socket.error)):<br/>                exc = err.OperationalError(<br/>                        2003,<br/>                        &quot;Can&#x27;t connect to MySQL server on %r (%s)&quot; % (<br/>                            self.host, e))<br/>                # Keep original exception and traceback to investigate error.<br/>                exc.original_exception = e<br/>                exc.traceback = traceback.format_exc()<br/>                if DEBUG: print(exc.traceback)<br/>&gt;               raise exc<br/><span class="error">E               pymysql.err.OperationalError: (2003, &quot;Can&#x27;t connect to MySQL server on &#x27;192.168.6.46&#x27; (timed out)&quot;)</span><br/><br/>..\..\..\appdata\local\programs\python\python37\lib\site-packages\pymysql\connections.py:619: OperationalError<br/></div></td></tr></tbody>
+      <tbody class="failed results-table-row">
+        <tr>
+          <td class="col-result">Failed</td>
+          <td class="col-name">testCase/common/test_oracleUtil.py::test_oracle_insert</td>
+          <td class="col-duration">21.13</td>
+          <td class="col-links"></td></tr>
+        <tr>
+          <td class="extra" colspan="4">
+            <div class="log">def test_oracle_insert():<br/>&gt;       oral = OracleUtil(&#x27;posp_agent&#x27;)<br/><br/>testCase\common\test_oracleUtil.py:14: <br/>_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _<br/><br/>self = &lt;common.oracleUtil.OracleUtil object at 0x000000000D18D208&gt;<br/>dbname = &#x27;posp_agent&#x27;<br/><br/>    def __init__(self, dbname):<br/>        connectifon = oracle_dblist[dbname]<br/>&gt;       self.db = cx_Oracle.connect(connectifon)<br/><span class="error">E       cx_Oracle.DatabaseError: ORA-12170: TNS:Connect timeout occurred</span><br/><br/>common\oracleUtil.py:23: DatabaseError<br/></div></td></tr></tbody>
+      <tbody class="failed results-table-row">
+        <tr>
+          <td class="col-result">Failed</td>
+          <td class="col-name">testCase/common/test_oracleUtil.py::test_oracle_update</td>
+          <td class="col-duration">21.11</td>
+          <td class="col-links"></td></tr>
+        <tr>
+          <td class="extra" colspan="4">
+            <div class="log">def test_oracle_update():<br/>&gt;       oral = OracleUtil(&#x27;posp_agent&#x27;)<br/><br/>testCase\common\test_oracleUtil.py:22: <br/>_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _<br/><br/>self = &lt;common.oracleUtil.OracleUtil object at 0x0000000002F589C8&gt;<br/>dbname = &#x27;posp_agent&#x27;<br/><br/>    def __init__(self, dbname):<br/>        connectifon = oracle_dblist[dbname]<br/>&gt;       self.db = cx_Oracle.connect(connectifon)<br/><span class="error">E       cx_Oracle.DatabaseError: ORA-12541: TNS:no listener</span><br/><br/>common\oracleUtil.py:23: DatabaseError<br/></div></td></tr></tbody>
+      <tbody class="failed results-table-row">
+        <tr>
+          <td class="col-result">Failed</td>
+          <td class="col-name">testCase/common/test_oracleUtil.py::test_oracle_delete</td>
+          <td class="col-duration">21.12</td>
+          <td class="col-links"></td></tr>
+        <tr>
+          <td class="extra" colspan="4">
+            <div class="log">def test_oracle_delete():<br/>&gt;       oral = OracleUtil(&#x27;posp_agent&#x27;)<br/><br/>testCase\common\test_oracleUtil.py:30: <br/>_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _<br/><br/>self = &lt;common.oracleUtil.OracleUtil object at 0x000000000CC8CC48&gt;<br/>dbname = &#x27;posp_agent&#x27;<br/><br/>    def __init__(self, dbname):<br/>        connectifon = oracle_dblist[dbname]<br/>&gt;       self.db = cx_Oracle.connect(connectifon)<br/><span class="error">E       cx_Oracle.DatabaseError: ORA-12170: TNS:Connect timeout occurred</span><br/><br/>common\oracleUtil.py:23: DatabaseError<br/></div></td></tr></tbody>
+      <tbody class="passed results-table-row">
+        <tr>
+          <td class="col-result">Passed</td>
+          <td class="col-name">testCase/common/test_checkOut.py::test_assert_embody</td>
+          <td class="col-duration">0.00</td>
+          <td class="col-links"></td></tr>
+        <tr>
+          <td class="extra" colspan="4">
+            <div class="empty log">No log output captured.</div></td></tr></tbody>
+      <tbody class="passed results-table-row">
+        <tr>
+          <td class="col-result">Passed</td>
+          <td class="col-name">testCase/common/test_fileUtil.py::test_create_file_paths</td>
+          <td class="col-duration">0.00</td>
+          <td class="col-links"></td></tr>
+        <tr>
+          <td class="extra" colspan="4">
+            <div class="log"> ------------------------------Captured stdout call------------------------------ <br/>
+<br/> ------------------------------Captured stderr call------------------------------ <br/>[2020-12-14 11:46:48,820] [logParameter.py:61] [logParameter:__console] [DEBUG]- 目录已存在:/Users/aries/Documents/GitHub/TestDemo
+[2020-12-14 11:46:48,822] [logParameter.py:61] [logParameter:__console] [DEBUG]- 创建文件:/Users/aries/Documents/GitHub/TestDemo/logs\2020-06-03.log
+<br/> -------------------------------Captured log call-------------------------------- <br/>DEBUG    root:logParameter.py:61 目录已存在:/Users/aries/Documents/GitHub/TestDemo
+DEBUG    root:logParameter.py:61 创建文件:/Users/aries/Documents/GitHub/TestDemo/logs\2020-06-03.log<br/></div></td></tr></tbody>
+      <tbody class="passed results-table-row">
+        <tr>
+          <td class="col-result">Passed</td>
+          <td class="col-name">testCase/common/test_checkOut.py::test_assert_embody_false</td>
+          <td class="col-duration">0.00</td>
+          <td class="col-links"></td></tr>
+        <tr>
+          <td class="extra" colspan="4">
+            <div class="log"> ------------------------------Captured stderr call------------------------------ <br/>[2020-12-14 11:46:48,824] [logParameter.py:59] [logParameter:__console] [INFO]- Does not contain
+<br/> -------------------------------Captured log call-------------------------------- <br/>INFO     root:logParameter.py:59 Does not contain<br/></div></td></tr></tbody>
+      <tbody class="passed results-table-row">
+        <tr>
+          <td class="col-result">Passed</td>
+          <td class="col-name">testCase/common/test_fileUtil.py::test_write_file</td>
+          <td class="col-duration">0.00</td>
+          <td class="col-links"></td></tr>
+        <tr>
+          <td class="extra" colspan="4">
+            <div class="empty log">No log output captured.</div></td></tr></tbody>
+      <tbody class="passed results-table-row">
+        <tr>
+          <td class="col-result">Passed</td>
+          <td class="col-name">testCase/common/test_checkOut.py::test_check_bank_account_type_false</td>
+          <td class="col-duration">0.00</td>
+          <td class="col-links"></td></tr>
+        <tr>
+          <td class="extra" colspan="4">
+            <div class="log"> ------------------------------Captured stderr call------------------------------ <br/>[2020-12-14 11:46:48,827] [logParameter.py:65] [logParameter:__console] [ERROR]- ns, Assignment error type
+<br/> -------------------------------Captured log call-------------------------------- <br/>ERROR    root:logParameter.py:65 ns, Assignment error type<br/></div></td></tr></tbody>
+      <tbody class="passed results-table-row">
+        <tr>
+          <td class="col-result">Passed</td>
+          <td class="col-name">testCase/common/test_fileUtil.py::test_read_file</td>
+          <td class="col-duration">0.00</td>
+          <td class="col-links"></td></tr>
+        <tr>
+          <td class="extra" colspan="4">
+            <div class="log"> ------------------------------Captured stdout call------------------------------ <br/>[&#x27;afsafdafdasfsf&#x27;]
+<br/></div></td></tr></tbody>
+      <tbody class="passed results-table-row">
+        <tr>
+          <td class="col-result">Passed</td>
+          <td class="col-name">testCase/common/test_checkOut.py::test_check_bank_account</td>
+          <td class="col-duration">0.00</td>
+          <td class="col-links"></td></tr>
+        <tr>
+          <td class="extra" colspan="4">
+            <div class="empty log">No log output captured.</div></td></tr></tbody>
+      <tbody class="passed results-table-row">
+        <tr>
+          <td class="col-result">Passed</td>
+          <td class="col-name">testCase/common/test_fileUtil.py::test_del_file</td>
+          <td class="col-duration">0.00</td>
+          <td class="col-links"></td></tr>
+        <tr>
+          <td class="extra" colspan="4">
+            <div class="empty log">No log output captured.</div></td></tr></tbody>
+      <tbody class="passed results-table-row">
+        <tr>
+          <td class="col-result">Passed</td>
+          <td class="col-name">testCase/common/test_checkOut.py::test_check_file_md5</td>
+          <td class="col-duration">0.00</td>
+          <td class="col-links"></td></tr>
+        <tr>
+          <td class="extra" colspan="4">
+            <div class="empty log">No log output captured.</div></td></tr></tbody>
+      <tbody class="passed results-table-row">
+        <tr>
+          <td class="col-result">Passed</td>
+          <td class="col-name">testCase/common/test_checkOut.py::test_check_file_md5_false</td>
+          <td class="col-duration">0.00</td>
+          <td class="col-links"></td></tr>
+        <tr>
+          <td class="extra" colspan="4">
+            <div class="empty log">No log output captured.</div></td></tr></tbody>
+      <tbody class="passed results-table-row">
+        <tr>
+          <td class="col-result">Passed</td>
+          <td class="col-name">testCase/common/test_email.py::test_send_mail</td>
+          <td class="col-duration">1.36</td>
+          <td class="col-links"></td></tr>
+        <tr>
+          <td class="extra" colspan="4">
+            <div class="log"> ------------------------------Captured stdout call------------------------------ <br/>Sent successfully!
+<br/></div></td></tr></tbody>
+      <tbody class="passed results-table-row">
+        <tr>
+          <td class="col-result">Passed</td>
+          <td class="col-name">testCase/common/test_encryptionUtil.py::test_md5Util</td>
+          <td class="col-duration">0.00</td>
+          <td class="col-links"></td></tr>
+        <tr>
+          <td class="extra" colspan="4">
+            <div class="empty log">No log output captured.</div></td></tr></tbody>
+      <tbody class="passed results-table-row">
+        <tr>
+          <td class="col-result">Passed</td>
+          <td class="col-name">testCase/common/test_encryptionUtil.py::test_md5Util_false</td>
+          <td class="col-duration">0.00</td>
+          <td class="col-links"></td></tr>
+        <tr>
+          <td class="extra" colspan="4">
+            <div class="empty log">No log output captured.</div></td></tr></tbody>
+      <tbody class="passed results-table-row">
+        <tr>
+          <td class="col-result">Passed</td>
+          <td class="col-name">testCase/common/test_encryptionUtil.py::test_hmacUtil</td>
+          <td class="col-duration">0.00</td>
+          <td class="col-links"></td></tr>
+        <tr>
+          <td class="extra" colspan="4">
+            <div class="empty log">No log output captured.</div></td></tr></tbody>
+      <tbody class="passed results-table-row">
+        <tr>
+          <td class="col-result">Passed</td>
+          <td class="col-name">testCase/common/test_encryptionUtil.py::test_base64Util</td>
+          <td class="col-duration">0.00</td>
+          <td class="col-links"></td></tr>
+        <tr>
+          <td class="extra" colspan="4">
+            <div class="empty log">No log output captured.</div></td></tr></tbody>
+      <tbody class="passed results-table-row">
+        <tr>
+          <td class="col-result">Passed</td>
+          <td class="col-name">testCase/common/test_encryptionUtil.py::test_base64_decode</td>
+          <td class="col-duration">0.00</td>
+          <td class="col-links"></td></tr>
+        <tr>
+          <td class="extra" colspan="4">
+            <div class="empty log">No log output captured.</div></td></tr></tbody>
+      <tbody class="passed results-table-row">
+        <tr>
+          <td class="col-result">Passed</td>
+          <td class="col-name">testCase/common/test_getBankCard.py::test_get_bank_card</td>
+          <td class="col-duration">0.00</td>
+          <td class="col-links"></td></tr>
+        <tr>
+          <td class="extra" colspan="4">
+            <div class="empty log">No log output captured.</div></td></tr></tbody>
+      <tbody class="passed results-table-row">
+        <tr>
+          <td class="col-result">Passed</td>
+          <td class="col-name">testCase/common/test_getBankCard.py::test_get_bank_card_4_debit</td>
+          <td class="col-duration">0.00</td>
+          <td class="col-links"></td></tr>
+        <tr>
+          <td class="extra" colspan="4">
+            <div class="empty log">No log output captured.</div></td></tr></tbody>
+      <tbody class="passed results-table-row">
+        <tr>
+          <td class="col-result">Passed</td>
+          <td class="col-name">testCase/common/test_getBankCard.py::test_get_bank_card_4_credit</td>
+          <td class="col-duration">0.00</td>
+          <td class="col-links"></td></tr>
+        <tr>
+          <td class="extra" colspan="4">
+            <div class="empty log">No log output captured.</div></td></tr></tbody>
+      <tbody class="passed results-table-row">
+        <tr>
+          <td class="col-result">Passed</td>
+          <td class="col-name">testCase/common/test_getBankCard.py::test_get_bank_card_type_false</td>
+          <td class="col-duration">0.00</td>
+          <td class="col-links"></td></tr>
+        <tr>
+          <td class="extra" colspan="4">
+            <div class="log"> ------------------------------Captured stderr call------------------------------ <br/>[2020-12-14 11:46:50,208] [logParameter.py:65] [logParameter:__console] [ERROR]- card_type, Assignment out of range
+<br/> -------------------------------Captured log call-------------------------------- <br/>ERROR    root:logParameter.py:65 card_type, Assignment out of range<br/></div></td></tr></tbody>
+      <tbody class="passed results-table-row">
+        <tr>
+          <td class="col-result">Passed</td>
+          <td class="col-name">testCase/common/test_getBankCard.py::test_get_bank_card_bin_type_false</td>
+          <td class="col-duration">0.00</td>
+          <td class="col-links"></td></tr>
+        <tr>
+          <td class="extra" colspan="4">
+            <div class="log"> ------------------------------Captured stderr call------------------------------ <br/>[2020-12-14 11:46:50,210] [logParameter.py:65] [logParameter:__console] [ERROR]- cardBin, Assignment error type
+<br/> -------------------------------Captured log call-------------------------------- <br/>ERROR    root:logParameter.py:65 cardBin, Assignment error type<br/></div></td></tr></tbody>
+      <tbody class="passed results-table-row">
+        <tr>
+          <td class="col-result">Passed</td>
+          <td class="col-name">testCase/common/test_getBankCard.py::test_get_bank_card_bin_false</td>
+          <td class="col-duration">0.00</td>
+          <td class="col-links"></td></tr>
+        <tr>
+          <td class="extra" colspan="4">
+            <div class="log"> ------------------------------Captured stderr call------------------------------ <br/>[2020-12-14 11:46:50,212] [logParameter.py:65] [logParameter:__console] [ERROR]- cardBin, Assignment out of range
+<br/> -------------------------------Captured log call-------------------------------- <br/>ERROR    root:logParameter.py:65 cardBin, Assignment out of range<br/></div></td></tr></tbody>
+      <tbody class="passed results-table-row">
+        <tr>
+          <td class="col-result">Passed</td>
+          <td class="col-name">testCase/common/test_getBankCard.py::test_get_bank_card_len_type_false</td>
+          <td class="col-duration">0.00</td>
+          <td class="col-links"></td></tr>
+        <tr>
+          <td class="extra" colspan="4">
+            <div class="log"> ------------------------------Captured stderr call------------------------------ <br/>[2020-12-14 11:46:50,214] [logParameter.py:65] [logParameter:__console] [ERROR]- cardLen, Assignment error type
+<br/> -------------------------------Captured log call-------------------------------- <br/>ERROR    root:logParameter.py:65 cardLen, Assignment error type<br/></div></td></tr></tbody>
+      <tbody class="passed results-table-row">
+        <tr>
+          <td class="col-result">Passed</td>
+          <td class="col-name">testCase/common/test_getBankCard.py::test_get_bank_card_len_false</td>
+          <td class="col-duration">0.00</td>
+          <td class="col-links"></td></tr>
+        <tr>
+          <td class="extra" colspan="4">
+            <div class="log"> ------------------------------Captured stderr call------------------------------ <br/>[2020-12-14 11:46:50,215] [logParameter.py:65] [logParameter:__console] [ERROR]- cardLen, Assignment out of range
+<br/> -------------------------------Captured log call-------------------------------- <br/>ERROR    root:logParameter.py:65 cardLen, Assignment out of range<br/></div></td></tr></tbody>
+      <tbody class="passed results-table-row">
+        <tr>
+          <td class="col-result">Passed</td>
+          <td class="col-name">testCase/common/test_getChineseName.py::test_create_name</td>
+          <td class="col-duration">0.00</td>
+          <td class="col-links"></td></tr>
+        <tr>
+          <td class="extra" colspan="4">
+            <div class="log"> ------------------------------Captured stdout call------------------------------ <br/>席污
+<br/></div></td></tr></tbody>
+      <tbody class="passed results-table-row">
+        <tr>
+          <td class="col-result">Passed</td>
+          <td class="col-name">testCase/common/test_getChineseName.py::test_create_minority_name</td>
+          <td class="col-duration">0.00</td>
+          <td class="col-links"></td></tr>
+        <tr>
+          <td class="extra" colspan="4">
+            <div class="log"> ------------------------------Captured stdout call------------------------------ <br/>阿地力·鄂彻岬粜
+<br/></div></td></tr></tbody>
+      <tbody class="passed results-table-row">
+        <tr>
+          <td class="col-result">Passed</td>
+          <td class="col-name">testCase/common/test_getIDCard.py::test_get_id_card</td>
+          <td class="col-duration">0.00</td>
+          <td class="col-links"></td></tr>
+        <tr>
+          <td class="extra" colspan="4">
+            <div class="empty log">No log output captured.</div></td></tr></tbody>
+      <tbody class="passed results-table-row">
+        <tr>
+          <td class="col-result">Passed</td>
+          <td class="col-name">testCase/common/test_getIDCard.py::test_get_id_card_regional_number</td>
+          <td class="col-duration">0.00</td>
+          <td class="col-links"></td></tr>
+        <tr>
+          <td class="extra" colspan="4">
+            <div class="empty log">No log output captured.</div></td></tr></tbody>
+      <tbody class="passed results-table-row">
+        <tr>
+          <td class="col-result">Passed</td>
+          <td class="col-name">testCase/common/test_getIDCard.py::test_get_id_card_regional_number_len_false</td>
+          <td class="col-duration">0.00</td>
+          <td class="col-links"></td></tr>
+        <tr>
+          <td class="extra" colspan="4">
+            <div class="log"> ------------------------------Captured stderr call------------------------------ <br/>[2020-12-14 11:46:50,224] [logParameter.py:65] [logParameter:__console] [ERROR]- rni, Assignment out of range
+<br/> -------------------------------Captured log call-------------------------------- <br/>ERROR    root:logParameter.py:65 rni, Assignment out of range<br/></div></td></tr></tbody>
+      <tbody class="passed results-table-row">
+        <tr>
+          <td class="col-result">Passed</td>
+          <td class="col-name">testCase/common/test_getIDCard.py::test_get_id_card_regional_number_type_false</td>
+          <td class="col-duration">0.00</td>
+          <td class="col-links"></td></tr>
+        <tr>
+          <td class="extra" colspan="4">
+            <div class="log"> ------------------------------Captured stderr call------------------------------ <br/>[2020-12-14 11:46:50,226] [logParameter.py:65] [logParameter:__console] [ERROR]- rni, Assignment error type
+<br/> -------------------------------Captured log call-------------------------------- <br/>ERROR    root:logParameter.py:65 rni, Assignment error type<br/></div></td></tr></tbody>
+      <tbody class="passed results-table-row">
+        <tr>
+          <td class="col-result">Passed</td>
+          <td class="col-name">testCase/common/test_getIDCard.py::test_get_id_card_year</td>
+          <td class="col-duration">0.00</td>
+          <td class="col-links"></td></tr>
+        <tr>
+          <td class="extra" colspan="4">
+            <div class="empty log">No log output captured.</div></td></tr></tbody>
+      <tbody class="passed results-table-row">
+        <tr>
+          <td class="col-result">Passed</td>
+          <td class="col-name">testCase/common/test_getIDCard.py::test_get_id_card_month</td>
+          <td class="col-duration">0.00</td>
+          <td class="col-links"></td></tr>
+        <tr>
+          <td class="extra" colspan="4">
+            <div class="empty log">No log output captured.</div></td></tr></tbody>
+      <tbody class="passed results-table-row">
+        <tr>
+          <td class="col-result">Passed</td>
+          <td class="col-name">testCase/common/test_getIDCard.py::test_get_id_card_month_false</td>
+          <td class="col-duration">0.00</td>
+          <td class="col-links"></td></tr>
+        <tr>
+          <td class="extra" colspan="4">
+            <div class="log"> ------------------------------Captured stderr call------------------------------ <br/>[2020-12-14 11:46:50,230] [logParameter.py:65] [logParameter:__console] [ERROR]- mi, Assignment out of range
+<br/> -------------------------------Captured log call-------------------------------- <br/>ERROR    root:logParameter.py:65 mi, Assignment out of range<br/></div></td></tr></tbody>
+      <tbody class="passed results-table-row">
+        <tr>
+          <td class="col-result">Passed</td>
+          <td class="col-name">testCase/common/test_getIDCard.py::test_get_id_card_month_type_error</td>
+          <td class="col-duration">0.00</td>
+          <td class="col-links"></td></tr>
+        <tr>
+          <td class="extra" colspan="4">
+            <div class="log"> ------------------------------Captured stderr call------------------------------ <br/>[2020-12-14 11:46:50,231] [logParameter.py:65] [logParameter:__console] [ERROR]- mi, Assignment error type
+<br/> -------------------------------Captured log call-------------------------------- <br/>ERROR    root:logParameter.py:65 mi, Assignment error type<br/></div></td></tr></tbody>
+      <tbody class="passed results-table-row">
+        <tr>
+          <td class="col-result">Passed</td>
+          <td class="col-name">testCase/common/test_getIDCard.py::test_get_id_card_day</td>
+          <td class="col-duration">0.00</td>
+          <td class="col-links"></td></tr>
+        <tr>
+          <td class="extra" colspan="4">
+            <div class="empty log">No log output captured.</div></td></tr></tbody>
+      <tbody class="passed results-table-row">
+        <tr>
+          <td class="col-result">Passed</td>
+          <td class="col-name">testCase/common/test_getIDCard.py::test_get_id_card_day_error</td>
+          <td class="col-duration">0.00</td>
+          <td class="col-links"></td></tr>
+        <tr>
+          <td class="extra" colspan="4">
+            <div class="log"> ------------------------------Captured stderr call------------------------------ <br/>[2020-12-14 11:46:50,236] [logParameter.py:65] [logParameter:__console] [ERROR]- mi, Assignment out of range
+<br/> -------------------------------Captured log call-------------------------------- <br/>ERROR    root:logParameter.py:65 mi, Assignment out of range<br/></div></td></tr></tbody>
+      <tbody class="passed results-table-row">
+        <tr>
+          <td class="col-result">Passed</td>
+          <td class="col-name">testCase/common/test_getIDCard.py::test_get_id_card_day_type_error</td>
+          <td class="col-duration">0.00</td>
+          <td class="col-links"></td></tr>
+        <tr>
+          <td class="extra" colspan="4">
+            <div class="log"> ------------------------------Captured stderr call------------------------------ <br/>[2020-12-14 11:46:50,238] [logParameter.py:65] [logParameter:__console] [ERROR]- mi, Assignment error type
+<br/> -------------------------------Captured log call-------------------------------- <br/>ERROR    root:logParameter.py:65 mi, Assignment error type<br/></div></td></tr></tbody>
+      <tbody class="passed results-table-row">
+        <tr>
+          <td class="col-result">Passed</td>
+          <td class="col-name">testCase/common/test_getIDCard.py::test_get_id_card_ymd</td>
+          <td class="col-duration">0.00</td>
+          <td class="col-links"></td></tr>
+        <tr>
+          <td class="extra" colspan="4">
+            <div class="empty log">No log output captured.</div></td></tr></tbody>
+      <tbody class="passed results-table-row">
+        <tr>
+          <td class="col-result">Passed</td>
+          <td class="col-name">testCase/common/test_getIDCard.py::test_get_id_card_sex_male</td>
+          <td class="col-duration">0.00</td>
+          <td class="col-links"></td></tr>
+        <tr>
+          <td class="extra" colspan="4">
+            <div class="empty log">No log output captured.</div></td></tr></tbody>
+      <tbody class="passed results-table-row">
+        <tr>
+          <td class="col-result">Passed</td>
+          <td class="col-name">testCase/common/test_getIDCard.py::test_get_id_card_sex_female</td>
+          <td class="col-duration">0.00</td>
+          <td class="col-links"></td></tr>
+        <tr>
+          <td class="extra" colspan="4">
+            <div class="empty log">No log output captured.</div></td></tr></tbody>
+      <tbody class="passed results-table-row">
+        <tr>
+          <td class="col-result">Passed</td>
+          <td class="col-name">testCase/common/test_getIDCard.py::test_get_id_card_sex_false</td>
+          <td class="col-duration">0.00</td>
+          <td class="col-links"></td></tr>
+        <tr>
+          <td class="extra" colspan="4">
+            <div class="log"> ------------------------------Captured stderr call------------------------------ <br/>[2020-12-14 11:46:50,245] [logParameter.py:65] [logParameter:__console] [ERROR]- rsni, Assignment out of range
+<br/> -------------------------------Captured log call-------------------------------- <br/>ERROR    root:logParameter.py:65 rsni, Assignment out of range<br/></div></td></tr></tbody>
+      <tbody class="passed results-table-row">
+        <tr>
+          <td class="col-result">Passed</td>
+          <td class="col-name">testCase/common/test_getIDCard.py::test_get_id_card_sex_type_false</td>
+          <td class="col-duration">0.00</td>
+          <td class="col-links"></td></tr>
+        <tr>
+          <td class="extra" colspan="4">
+            <div class="log"> ------------------------------Captured stderr call------------------------------ <br/>[2020-12-14 11:46:50,247] [logParameter.py:65] [logParameter:__console] [ERROR]- rsni, Assignment error type
+<br/> -------------------------------Captured log call-------------------------------- <br/>ERROR    root:logParameter.py:65 rsni, Assignment error type<br/></div></td></tr></tbody>
+      <tbody class="passed results-table-row">
+        <tr>
+          <td class="col-result">Passed</td>
+          <td class="col-name">testCase/common/test_getRandomNumber.py::test_get_random_number_4_dt</td>
+          <td class="col-duration">0.00</td>
+          <td class="col-links"></td></tr>
+        <tr>
+          <td class="extra" colspan="4">
+            <div class="empty log">No log output captured.</div></td></tr></tbody>
+      <tbody class="passed results-table-row">
+        <tr>
+          <td class="col-result">Passed</td>
+          <td class="col-name">testCase/common/test_getRandomNumber.py::test_get_random_number_4_dt_format_ymdhms</td>
+          <td class="col-duration">0.00</td>
+          <td class="col-links"></td></tr>
+        <tr>
+          <td class="extra" colspan="4">
+            <div class="empty log">No log output captured.</div></td></tr></tbody>
+      <tbody class="passed results-table-row">
+        <tr>
+          <td class="col-result">Passed</td>
+          <td class="col-name">testCase/common/test_getRandomNumber.py::test_get_random_number_4_dt_format_f</td>
+          <td class="col-duration">0.00</td>
+          <td class="col-links"></td></tr>
+        <tr>
+          <td class="extra" colspan="4">
+            <div class="empty log">No log output captured.</div></td></tr></tbody>
+      <tbody class="passed results-table-row">
+        <tr>
+          <td class="col-result">Passed</td>
+          <td class="col-name">testCase/common/test_getRandomNumber.py::test_get_random_number_4_dt_format_ymdhm</td>
+          <td class="col-duration">0.00</td>
+          <td class="col-links"></td></tr>
+        <tr>
+          <td class="extra" colspan="4">
+            <div class="empty log">No log output captured.</div></td></tr></tbody>
+      <tbody class="passed results-table-row">
+        <tr>
+          <td class="col-result">Passed</td>
+          <td class="col-name">testCase/common/test_getRandomNumber.py::test_get_random_number_4_dt_format_ymd</td>
+          <td class="col-duration">0.00</td>
+          <td class="col-links"></td></tr>
+        <tr>
+          <td class="extra" colspan="4">
+            <div class="empty log">No log output captured.</div></td></tr></tbody>
+      <tbody class="passed results-table-row">
+        <tr>
+          <td class="col-result">Passed</td>
+          <td class="col-name">testCase/common/test_getRandomNumber.py::test_get_random_number_4_dt_format_md</td>
+          <td class="col-duration">0.00</td>
+          <td class="col-links"></td></tr>
+        <tr>
+          <td class="extra" colspan="4">
+            <div class="empty log">No log output captured.</div></td></tr></tbody>
+      <tbody class="passed results-table-row">
+        <tr>
+          <td class="col-result">Passed</td>
+          <td class="col-name">testCase/common/test_getRandomNumber.py::test_get_random_number_4_dt_format_hm</td>
+          <td class="col-duration">0.00</td>
+          <td class="col-links"></td></tr>
+        <tr>
+          <td class="extra" colspan="4">
+            <div class="empty log">No log output captured.</div></td></tr></tbody>
+      <tbody class="passed results-table-row">
+        <tr>
+          <td class="col-result">Passed</td>
+          <td class="col-name">testCase/common/test_getRandomNumber.py::test_get_random_number_4_dt_format_hms</td>
+          <td class="col-duration">0.00</td>
+          <td class="col-links"></td></tr>
+        <tr>
+          <td class="extra" colspan="4">
+            <div class="empty log">No log output captured.</div></td></tr></tbody>
+      <tbody class="passed results-table-row">
+        <tr>
+          <td class="col-result">Passed</td>
+          <td class="col-name">testCase/common/test_getRandomNumber.py::test_get_random_year</td>
+          <td class="col-duration">0.00</td>
+          <td class="col-links"></td></tr>
+        <tr>
+          <td class="extra" colspan="4">
+            <div class="empty log">No log output captured.</div></td></tr></tbody>
+      <tbody class="passed results-table-row">
+        <tr>
+          <td class="col-result">Passed</td>
+          <td class="col-name">testCase/common/test_getRandomNumber.py::test_get_random_year_yi</td>
+          <td class="col-duration">0.00</td>
+          <td class="col-links"></td></tr>
+        <tr>
+          <td class="extra" colspan="4">
+            <div class="empty log">No log output captured.</div></td></tr></tbody>
+      <tbody class="passed results-table-row">
+        <tr>
+          <td class="col-result">Passed</td>
+          <td class="col-name">testCase/common/test_getRandomNumber.py::test_get_random_year_yi_type_false</td>
+          <td class="col-duration">0.00</td>
+          <td class="col-links"></td></tr>
+        <tr>
+          <td class="extra" colspan="4">
+            <div class="log"> ------------------------------Captured stderr call------------------------------ <br/>[2020-12-14 11:46:50,260] [logParameter.py:65] [logParameter:__console] [ERROR]- yi, Assignment error type
+<br/> -------------------------------Captured log call-------------------------------- <br/>ERROR    root:logParameter.py:65 yi, Assignment error type<br/></div></td></tr></tbody>
+      <tbody class="passed results-table-row">
+        <tr>
+          <td class="col-result">Passed</td>
+          <td class="col-name">testCase/common/test_getRandomNumber.py::test_get_random_month_len</td>
+          <td class="col-duration">0.00</td>
+          <td class="col-links"></td></tr>
+        <tr>
+          <td class="extra" colspan="4">
+            <div class="empty log">No log output captured.</div></td></tr></tbody>
+      <tbody class="passed results-table-row">
+        <tr>
+          <td class="col-result">Passed</td>
+          <td class="col-name">testCase/common/test_getRandomNumber.py::test_get_random_month_mi</td>
+          <td class="col-duration">0.00</td>
+          <td class="col-links"></td></tr>
+        <tr>
+          <td class="extra" colspan="4">
+            <div class="empty log">No log output captured.</div></td></tr></tbody>
+      <tbody class="passed results-table-row">
+        <tr>
+          <td class="col-result">Passed</td>
+          <td class="col-name">testCase/common/test_getRandomNumber.py::test_get_random_month_false</td>
+          <td class="col-duration">0.00</td>
+          <td class="col-links"></td></tr>
+        <tr>
+          <td class="extra" colspan="4">
+            <div class="log"> ------------------------------Captured stderr call------------------------------ <br/>[2020-12-14 11:46:50,264] [logParameter.py:65] [logParameter:__console] [ERROR]- mi, Assignment out of range
+<br/> -------------------------------Captured log call-------------------------------- <br/>ERROR    root:logParameter.py:65 mi, Assignment out of range<br/></div></td></tr></tbody>
+      <tbody class="passed results-table-row">
+        <tr>
+          <td class="col-result">Passed</td>
+          <td class="col-name">testCase/common/test_getRandomNumber.py::test_get_random_month_type_false</td>
+          <td class="col-duration">0.00</td>
+          <td class="col-links"></td></tr>
+        <tr>
+          <td class="extra" colspan="4">
+            <div class="log"> ------------------------------Captured stderr call------------------------------ <br/>[2020-12-14 11:46:50,265] [logParameter.py:65] [logParameter:__console] [ERROR]- mi, Assignment error type
+<br/> -------------------------------Captured log call-------------------------------- <br/>ERROR    root:logParameter.py:65 mi, Assignment error type<br/></div></td></tr></tbody>
+      <tbody class="passed results-table-row">
+        <tr>
+          <td class="col-result">Passed</td>
+          <td class="col-name">testCase/common/test_getRandomNumber.py::test_get_random_day</td>
+          <td class="col-duration">0.00</td>
+          <td class="col-links"></td></tr>
+        <tr>
+          <td class="extra" colspan="4">
+            <div class="empty log">No log output captured.</div></td></tr></tbody>
+      <tbody class="passed results-table-row">
+        <tr>
+          <td class="col-result">Passed</td>
+          <td class="col-name">testCase/common/test_getRandomNumber.py::test_get_random_day_d</td>
+          <td class="col-duration">0.00</td>
+          <td class="col-links"></td></tr>
+        <tr>
+          <td class="extra" colspan="4">
+            <div class="empty log">No log output captured.</div></td></tr></tbody>
+      <tbody class="passed results-table-row">
+        <tr>
+          <td class="col-result">Passed</td>
+          <td class="col-name">testCase/common/test_getRandomNumber.py::test_get_random_day_ym</td>
+          <td class="col-duration">0.00</td>
+          <td class="col-links"></td></tr>
+        <tr>
+          <td class="extra" colspan="4">
+            <div class="empty log">No log output captured.</div></td></tr></tbody>
+      <tbody class="passed results-table-row">
+        <tr>
+          <td class="col-result">Passed</td>
+          <td class="col-name">testCase/common/test_getRandomNumber.py::test_get_random_day_false</td>
+          <td class="col-duration">0.00</td>
+          <td class="col-links"></td></tr>
+        <tr>
+          <td class="extra" colspan="4">
+            <div class="log"> ------------------------------Captured stderr call------------------------------ <br/>[2020-12-14 11:46:50,270] [logParameter.py:65] [logParameter:__console] [ERROR]- di, Assignment out of range
+<br/> -------------------------------Captured log call-------------------------------- <br/>ERROR    root:logParameter.py:65 di, Assignment out of range<br/></div></td></tr></tbody>
+      <tbody class="passed results-table-row">
+        <tr>
+          <td class="col-result">Passed</td>
+          <td class="col-name">testCase/common/test_getRandomNumber.py::test_get_random_day_type_false</td>
+          <td class="col-duration">0.00</td>
+          <td class="col-links"></td></tr>
+        <tr>
+          <td class="extra" colspan="4">
+            <div class="log"> ------------------------------Captured stderr call------------------------------ <br/>[2020-12-14 11:46:50,272] [logParameter.py:65] [logParameter:__console] [ERROR]- di, Assignment error type
+<br/> -------------------------------Captured log call-------------------------------- <br/>ERROR    root:logParameter.py:65 di, Assignment error type<br/></div></td></tr></tbody>
+      <tbody class="passed results-table-row">
+        <tr>
+          <td class="col-result">Passed</td>
+          <td class="col-name">testCase/common/test_getRandomNumber.py::test_get_random_day_md_false</td>
+          <td class="col-duration">0.00</td>
+          <td class="col-links"></td></tr>
+        <tr>
+          <td class="extra" colspan="4">
+            <div class="log"> ------------------------------Captured stderr call------------------------------ <br/>[2020-12-14 11:46:50,274] [logParameter.py:65] [logParameter:__console] [ERROR]- di, Assignment out of range
+<br/> -------------------------------Captured log call-------------------------------- <br/>ERROR    root:logParameter.py:65 di, Assignment out of range<br/></div></td></tr></tbody>
+      <tbody class="passed results-table-row">
+        <tr>
+          <td class="col-result">Passed</td>
+          <td class="col-name">testCase/common/test_getRandomNumber.py::test_get_random_day_ymd_false</td>
+          <td class="col-duration">0.00</td>
+          <td class="col-links"></td></tr>
+        <tr>
+          <td class="extra" colspan="4">
+            <div class="log"> ------------------------------Captured stderr call------------------------------ <br/>[2020-12-14 11:46:50,276] [logParameter.py:65] [logParameter:__console] [ERROR]- di, Assignment out of range
+<br/> -------------------------------Captured log call-------------------------------- <br/>ERROR    root:logParameter.py:65 di, Assignment out of range<br/></div></td></tr></tbody>
+      <tbody class="passed results-table-row">
+        <tr>
+          <td class="col-result">Passed</td>
+          <td class="col-name">testCase/common/test_getRandomNumber.py::test_get_phone_number</td>
+          <td class="col-duration">0.00</td>
+          <td class="col-links"></td></tr>
+        <tr>
+          <td class="extra" colspan="4">
+            <div class="empty log">No log output captured.</div></td></tr></tbody>
+      <tbody class="passed results-table-row">
+        <tr>
+          <td class="col-result">Passed</td>
+          <td class="col-name">testCase/common/test_getRandomNumber.py::test_get_phone_number_segment</td>
+          <td class="col-duration">0.00</td>
+          <td class="col-links"></td></tr>
+        <tr>
+          <td class="extra" colspan="4">
+            <div class="empty log">No log output captured.</div></td></tr></tbody>
+      <tbody class="passed results-table-row">
+        <tr>
+          <td class="col-result">Passed</td>
+          <td class="col-name">testCase/common/test_getRandomNumber.py::test_get_phone_number_segment_type_false</td>
+          <td class="col-duration">0.00</td>
+          <td class="col-links"></td></tr>
+        <tr>
+          <td class="extra" colspan="4">
+            <div class="log"> ------------------------------Captured stderr call------------------------------ <br/>[2020-12-14 11:46:50,280] [logParameter.py:65] [logParameter:__console] [ERROR]- pi, Assignment error type
+<br/> -------------------------------Captured log call-------------------------------- <br/>ERROR    root:logParameter.py:65 pi, Assignment error type<br/></div></td></tr></tbody>
+      <tbody class="passed results-table-row">
+        <tr>
+          <td class="col-result">Passed</td>
+          <td class="col-name">testCase/common/test_getRandomNumber.py::test_get_phone_number_segment_false</td>
+          <td class="col-duration">0.00</td>
+          <td class="col-links"></td></tr>
+        <tr>
+          <td class="extra" colspan="4">
+            <div class="log"> ------------------------------Captured stderr call------------------------------ <br/>[2020-12-14 11:46:50,282] [logParameter.py:65] [logParameter:__console] [ERROR]- pi, Assignment out of range
+<br/> -------------------------------Captured log call-------------------------------- <br/>ERROR    root:logParameter.py:65 pi, Assignment out of range<br/></div></td></tr></tbody>
+      <tbody class="passed results-table-row">
+        <tr>
+          <td class="col-result">Passed</td>
+          <td class="col-name">testCase/common/test_log.py::test_log</td>
+          <td class="col-duration">0.00</td>
+          <td class="col-links"></td></tr>
+        <tr>
+          <td class="extra" colspan="4">
+            <div class="log"> ------------------------------Captured stderr call------------------------------ <br/>[2020-12-14 11:46:50,283] [logParameter.py:61] [logParameter:__console] [DEBUG]- ---测试开始----
+[2020-12-14 11:46:50,284] [logParameter.py:59] [logParameter:__console] [INFO]- 操作步骤
+[2020-12-14 11:46:50,285] [logParameter.py:63] [logParameter:__console] [WARNING]- ----测试结束----
+[2020-12-14 11:46:50,285] [logParameter.py:65] [logParameter:__console] [ERROR]- ----测试错误----
+<br/> -------------------------------Captured log call-------------------------------- <br/>DEBUG    root:logParameter.py:61 ---测试开始----
+INFO     root:logParameter.py:59 操作步骤
+WARNING  root:logParameter.py:63 ----测试结束----
+ERROR    root:logParameter.py:65 ----测试错误----<br/></div></td></tr></tbody>
+      <tbody class="passed results-table-row">
+        <tr>
+          <td class="col-result">Passed</td>
+          <td class="col-name">testCase/common/test_stringUtil.py::test_is_chinese</td>
+          <td class="col-duration">0.00</td>
+          <td class="col-links"></td></tr>
+        <tr>
+          <td class="extra" colspan="4">
+            <div class="empty log">No log output captured.</div></td></tr></tbody>
+      <tbody class="passed results-table-row">
+        <tr>
+          <td class="col-result">Passed</td>
+          <td class="col-name">testCase/common/test_stringUtil.py::test_is_chinese_false</td>
+          <td class="col-duration">0.00</td>
+          <td class="col-links"></td></tr>
+        <tr>
+          <td class="extra" colspan="4">
+            <div class="empty log">No log output captured.</div></td></tr></tbody>
+      <tbody class="passed results-table-row">
+        <tr>
+          <td class="col-result">Passed</td>
+          <td class="col-name">testCase/common/test_stringUtil.py::test_convert_string_2_hex</td>
+          <td class="col-duration">0.00</td>
+          <td class="col-links"></td></tr>
+        <tr>
+          <td class="extra" colspan="4">
+            <div class="empty log">No log output captured.</div></td></tr></tbody>
+      <tbody class="passed results-table-row">
+        <tr>
+          <td class="col-result">Passed</td>
+          <td class="col-name">testCase/common/test_stringUtil.py::test_convert_string_2_hex_tpye_false</td>
+          <td class="col-duration">0.00</td>
+          <td class="col-links"></td></tr>
+        <tr>
+          <td class="extra" colspan="4">
+            <div class="log"> ------------------------------Captured stderr call------------------------------ <br/>[2020-12-14 11:48:23,877] [logParameter.py:65] [logParameter:__console] [ERROR]- s, Assignment error type
+<br/> -------------------------------Captured log call-------------------------------- <br/>ERROR    root:logParameter.py:65 s, Assignment error type<br/></div></td></tr></tbody>
+      <tbody class="passed results-table-row">
+        <tr>
+          <td class="col-result">Passed</td>
+          <td class="col-name">testCase/common/test_stringUtil.py::test_convert_hex_2_string</td>
+          <td class="col-duration">0.00</td>
+          <td class="col-links"></td></tr>
+        <tr>
+          <td class="extra" colspan="4">
+            <div class="empty log">No log output captured.</div></td></tr></tbody>
+      <tbody class="passed results-table-row">
+        <tr>
+          <td class="col-result">Passed</td>
+          <td class="col-name">testCase/common/test_stringUtil.py::test_convert_hex_2_string_false</td>
+          <td class="col-duration">0.00</td>
+          <td class="col-links"></td></tr>
+        <tr>
+          <td class="extra" colspan="4">
+            <div class="log"> ------------------------------Captured stderr call------------------------------ <br/>[2020-12-14 11:48:23,880] [logParameter.py:65] [logParameter:__console] [ERROR]- h, Assignment error type
+<br/> -------------------------------Captured log call-------------------------------- <br/>ERROR    root:logParameter.py:65 h, Assignment error type<br/></div></td></tr></tbody>
+      <tbody class="passed results-table-row">
+        <tr>
+          <td class="col-result">Passed</td>
+          <td class="col-name">testCase/common/test_stringUtil.py::test_get_string_len</td>
+          <td class="col-duration">0.00</td>
+          <td class="col-links"></td></tr>
+        <tr>
+          <td class="extra" colspan="4">
+            <div class="empty log">No log output captured.</div></td></tr></tbody>
+      <tbody class="passed results-table-row">
+        <tr>
+          <td class="col-result">Passed</td>
+          <td class="col-name">testCase/common/test_stringUtil.py::test_get_string_len_type_false</td>
+          <td class="col-duration">0.00</td>
+          <td class="col-links"></td></tr>
+        <tr>
+          <td class="extra" colspan="4">
+            <div class="log"> ------------------------------Captured stderr call------------------------------ <br/>[2020-12-14 11:48:23,883] [logParameter.py:65] [logParameter:__console] [ERROR]- s, Assignment error type
+<br/> -------------------------------Captured log call-------------------------------- <br/>ERROR    root:logParameter.py:65 s, Assignment error type<br/></div></td></tr></tbody>
+      <tbody class="passed results-table-row">
+        <tr>
+          <td class="col-result">Passed</td>
+          <td class="col-name">testCase/common/test_stringUtil.py::test_random_hex_string</td>
+          <td class="col-duration">0.00</td>
+          <td class="col-links"></td></tr>
+        <tr>
+          <td class="extra" colspan="4">
+            <div class="empty log">No log output captured.</div></td></tr></tbody>
+      <tbody class="passed results-table-row">
+        <tr>
+          <td class="col-result">Passed</td>
+          <td class="col-name">testCase/common/test_stringUtil.py::test_random_hex_string_4_hi</td>
+          <td class="col-duration">0.00</td>
+          <td class="col-links"></td></tr>
+        <tr>
+          <td class="extra" colspan="4">
+            <div class="empty log">No log output captured.</div></td></tr></tbody>
+      <tbody class="passed results-table-row">
+        <tr>
+          <td class="col-result">Passed</td>
+          <td class="col-name">testCase/common/test_stringUtil.py::test_random_hex_string_type_false</td>
+          <td class="col-duration">0.00</td>
+          <td class="col-links"></td></tr>
+        <tr>
+          <td class="extra" colspan="4">
+            <div class="log"> ------------------------------Captured stderr call------------------------------ <br/>[2020-12-14 11:48:23,887] [logParameter.py:65] [logParameter:__console] [ERROR]- i, Assignment error type
+<br/> -------------------------------Captured log call-------------------------------- <br/>ERROR    root:logParameter.py:65 i, Assignment error type<br/></div></td></tr></tbody>
+      <tbody class="passed results-table-row">
+        <tr>
+          <td class="col-result">Passed</td>
+          <td class="col-name">testCase/common/test_checkOut.py::test_check_bank_account_false</td>
+          <td class="col-duration">0.00</td>
+          <td class="col-links"></td></tr>
+        <tr>
+          <td class="extra" colspan="4">
+            <div class="empty log">No log output captured.</div></td></tr></tbody>
+      <tbody class="passed results-table-row">
+        <tr>
+          <td class="col-result">Passed</td>
+          <td class="col-name">testCase/common/test_fileUtil.py::test_del_file_false</td>
+          <td class="col-duration">0.00</td>
+          <td class="col-links"></td></tr>
+        <tr>
+          <td class="extra" colspan="4">
+            <div class="log"> ------------------------------Captured stderr call------------------------------ <br/>[2020-12-14 11:48:23,890] [logParameter.py:65] [logParameter:__console] [ERROR]- File does not exist
+<br/> -------------------------------Captured log call-------------------------------- <br/>ERROR    root:logParameter.py:65 File does not exist<br/></div></td></tr></tbody></table></body></html>
